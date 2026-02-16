@@ -1,0 +1,941 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>残業シミュレーター</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0d1117;
+            color: #c9d1d9;
+        }
+
+        input[type="time"]::-webkit-calendar-picker-indicator {
+            filter: invert(1);
+        }
+
+        .calendar-cell {
+            transition: background-color 0.2s, transform 0.2s;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .calendar-cell.is-work-day {
+            background-color: #16a34a;
+            /* Green-600 */
+            color: #fff;
+            font-weight: bold;
+        }
+
+        .calendar-cell.is-weekend {
+            color: #ff6347;
+            /* Tomato red */
+        }
+
+        .calendar-cell.is-holiday {
+            color: #ff6347;
+            /* Tomato red */
+        }
+
+        .calendar-cell.overtime-day {
+            background-color: #3b82f6;
+            /* Blue-600 */
+        }
+
+        .calendar-cell.manual-entry {
+            background-color: #f59e0b;
+            /* Amber-500 */
+            color: #fff;
+        }
+
+        .styled-table {
+            border-collapse: collapse;
+            width: 100%;
+            border-radius: 0.5rem;
+            overflow: hidden;
+            border: 1px solid #4b5563;
+        }
+
+        .styled-table th,
+        .styled-table td {
+            padding: 0.5rem;
+            border: 1px solid #4b5563;
+            text-align: center;
+        }
+
+        .styled-table th {
+            background-color: #1f2937;
+            font-weight: bold;
+            color: #d1d5db;
+        }
+
+        .styled-table tbody tr:hover {
+            background-color: #374151;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .animate-fade-in {
+            animation: fadeIn 0.5s ease-out forwards;
+        }
+
+        .manual-entry::after {
+            content: '✎';
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            font-size: 8px;
+            color: #f59e0b;
+        }
+    </style>
+</head>
+
+<body class="p-4 flex justify-center items-center min-h-screen">
+
+    <div class="bg-gray-800 p-8 rounded-2xl shadow-xl w-full max-w-xl mx-auto">
+        <h1 class="text-3xl font-bold text-center mb-6 text-gray-200">残業シミュレーター</h1>
+        <p class="text-sm text-center mb-6 text-gray-400">
+            勤務時間や残業日を自由に設定して、目標達成に必要な時間を計算します。
+        </p>
+
+        <!-- 勤務時間設定セクション -->
+        <details class="mb-6 bg-gray-700 p-4 rounded-lg" open>
+            <summary class="text-lg font-semibold text-gray-200 cursor-pointer">
+                デフォルト勤務時間設定
+            </summary>
+            <div class="mt-4 space-y-4 text-sm">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="startTime" class="block text-gray-300 mb-1">開始時間</label>
+                        <input type="time" id="startTime" value="09:00"
+                            class="w-full p-2 rounded-lg bg-gray-600 border border-gray-500 text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200">
+                    </div>
+                    <div>
+                        <label for="endTime" class="block text-gray-300 mb-1">終了時間</label>
+                        <input type="time" id="endTime" value="17:45"
+                            class="w-full p-2 rounded-lg bg-gray-600 border border-gray-500 text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200">
+                    </div>
+                </div>
+                <div class="space-y-2">
+                    <p class="font-medium text-gray-300">休憩時間 (最大4つ)</p>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div><label for="break1Start" class="block text-gray-400 mb-1">休憩1 開始</label><input type="time"
+                                id="break1Start" value="12:00"
+                                class="w-full p-2 rounded-lg bg-gray-600 border border-gray-500 text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div><label for="break1End" class="block text-gray-400 mb-1">休憩1 終了</label><input type="time"
+                                id="break1End" value="13:00"
+                                class="w-full p-2 rounded-lg bg-gray-600 border border-gray-500 text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div><label for="break2Start" class="block text-gray-400 mb-1">休憩2 開始</label><input type="time"
+                                id="break2Start" value="17:45"
+                                class="w-full p-2 rounded-lg bg-gray-600 border border-gray-500 text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div><label for="break2End" class="block text-gray-400 mb-1">休憩2 終了</label><input type="time"
+                                id="break2End" value="18:15"
+                                class="w-full p-2 rounded-lg bg-gray-600 border border-gray-500 text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div><label for="break3Start" class="block text-gray-400 mb-1">休憩3 開始</label><input type="time"
+                                id="break3Start" value="20:15"
+                                class="w-full p-2 rounded-lg bg-gray-600 border border-gray-500 text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div><label for="break3End" class="block text-gray-400 mb-1">休憩3 終了</label><input type="time"
+                                id="break3End" value="20:30"
+                                class="w-full p-2 rounded-lg bg-gray-600 border border-gray-500 text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div><label for="break4Start" class="block text-gray-400 mb-1">休憩4 開始</label><input type="time"
+                                id="break4Start" value="22:30"
+                                class="w-full p-2 rounded-lg bg-gray-600 border border-gray-500 text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div><label for="break4End" class="block text-gray-400 mb-1">休憩4 終了</label><input type="time"
+                                id="break4End" value="22:45"
+                                class="w-full p-2 rounded-lg bg-gray-600 border border-gray-500 text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </details>
+
+        <!-- 入力セクション -->
+        <div class="space-y-4">
+            <div>
+                <label for="targetHours" class="block text-sm font-medium mb-1 text-gray-300">目標稼働時間 (h)</label>
+                <input type="number" id="targetHours" value="140"
+                    class="w-full p-3 rounded-lg bg-gray-700 border border-gray-600 text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200">
+                <p id="targetHoursFormula" class="text-xs text-gray-400 mt-1"></p>
+            </div>
+
+            <!-- カレンダーセクション -->
+            <div class="bg-gray-700 p-4 rounded-lg">
+                <div class="flex justify-between items-center mb-4">
+                    <div>
+                        <select id="year-select" class="bg-gray-600 p-2 rounded-lg text-gray-200"></select>
+                        <select id="month-select" class="bg-gray-600 p-2 rounded-lg text-gray-200"></select>
+                    </div>
+                    <div class="text-sm font-bold text-gray-300">
+                        稼働日数: <span id="workDaysCount">0</span> 日
+                    </div>
+                </div>
+                <!-- 祝日同期セクション -->
+                <div class="mb-4 flex flex-col space-y-2">
+                    <div class="flex items-center space-x-2">
+                        <button id="syncHolidaysBtn"
+                            class="bg-indigo-600 text-white text-xs py-1.5 px-3 rounded hover:bg-indigo-700 transition duration-200">
+                            内閣府から祝日同期
+                        </button>
+                        <span id="holidaySyncStatus" class="text-[10px] text-gray-400"></span>
+                    </div>
+                    <div id="holidayFileGroup" class="hidden flex items-center space-x-2">
+                        <p class="text-[10px] text-yellow-500">CORS制限により同期失敗。CSVを選択してください：</p>
+                        <input type="file" id="holidayCsvFile" accept=".csv"
+                            class="text-[10px] text-gray-300 bg-gray-600 rounded">
+                    </div>
+                </div>
+                <div id="calendar" class="grid grid-cols-7 gap-1 text-center font-bold text-sm">
+                    <!-- カレンダーはJSで生成されます -->
+                </div>
+            </div>
+
+            <!-- 残業設定セクション -->
+            <details class="bg-gray-700 p-4 rounded-lg">
+                <summary class="text-lg font-semibold text-gray-200 cursor-pointer">
+                    残業設定
+                </summary>
+                <div class="mt-4 space-y-4 text-sm">
+                    <div>
+                        <label for="overtimeEnd" class="block text-gray-300 mb-1">デフォルト残業終了時間</label>
+                        <input type="time" id="overtimeEnd" value="19:00"
+                            class="w-full p-2 rounded-lg bg-gray-600 border border-gray-500 text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200">
+                    </div>
+                    <div>
+                        <p class="font-medium text-gray-300 mb-2">残業予定日を選択 (クリックでON/OFF)</p>
+                        <div id="overtime-calendar" class="grid grid-cols-7 gap-1 text-center font-bold text-sm">
+                            <!-- 残業カレンダーはJSで生成されます -->
+                        </div>
+                    </div>
+                </div>
+            </details>
+        </div>
+
+        <!-- データ管理セクション (バックアップ/復元) -->
+        <details class="mb-6 bg-gray-700 p-4 rounded-lg">
+            <summary class="text-sm font-semibold text-gray-300 cursor-pointer">
+                データ管理 (設定の保存・復元)
+            </summary>
+            <div class="mt-4 space-y-3">
+                <p class="text-[10px] text-gray-400">ブラウザを閉じると設定が消えてしまう場合、以下のボタンでファイルとして保存・読み込みができます。</p>
+                <div class="flex space-x-2">
+                    <button id="exportSettingsBtn"
+                        class="flex-1 bg-green-700 text-white text-xs py-2 px-3 rounded hover:bg-green-800 transition duration-200">
+                        設定をファイルに書き出す
+                    </button>
+                    <label class="flex-1">
+                        <span
+                            class="block w-full bg-indigo-700 text-white text-xs py-2 px-3 rounded hover:bg-indigo-800 transition duration-200 text-center cursor-pointer">
+                            ファイルから読み込む
+                        </span>
+                        <input type="file" id="importSettingsFile" accept=".json" class="hidden">
+                    </label>
+                </div>
+            </div>
+        </details>
+
+        <!-- 計算ボタン -->
+        <button id="calculateBtn"
+            class="mt-8 w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg shadow-md transition-colors duration-200 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:focus-ring-offset-gray-800">
+            計算する
+        </button>
+
+        <!-- 結果表示セクション -->
+        <div id="results" class="mt-8 pt-4 border-t border-gray-700 hidden">
+            <h2 class="text-xl font-semibold mb-4 text-gray-200">計算結果</h2>
+            <div class="space-y-3">
+                <div class="bg-gray-700 p-4 rounded-lg">
+                    <div class="flex justify-between items-center mb-2">
+                        <p class="text-sm text-gray-400">通常勤務による総時間</p>
+                        <button id="exportNormalBtn"
+                            class="bg-gray-600 text-gray-200 text-xs py-1 px-2 rounded hover:bg-gray-500">Excelで保存</button>
+                    </div>
+                    <p id="totalNormalHours" class="text-2xl font-bold text-gray-100 mt-1">00:00</p>
+                    <div id="normalHoursTable" class="text-xs mt-2"></div>
+                </div>
+                <div class="bg-gray-700 p-4 rounded-lg">
+                    <div class="flex justify-between items-center mb-2">
+                        <p class="text-sm text-gray-400">残業による追加時間</p>
+                        <button id="exportOvertimeBtn"
+                            class="bg-gray-600 text-gray-200 text-xs py-1 px-2 rounded hover:bg-gray-500">Excelで保存</button>
+                    </div>
+                    <p id="totalOvertimeHours" class="text-2xl font-bold text-gray-100 mt-1">00:00</p>
+                    <div id="overtimeHoursTable" class="text-xs mt-2"></div>
+                </div>
+                <div class="bg-gray-700 p-4 rounded-lg">
+                    <p class="text-sm text-gray-400">総合計時間</p>
+                    <p id="finalTotalHours" class="text-2xl font-bold text-gray-100 mt-1">00:00</p>
+                </div>
+                <div id="resultMessageContainer" class="bg-gray-700 p-4 rounded-lg">
+                    <p class="text-sm text-gray-400">達成状況</p>
+                    <p id="resultMessage" class="text-xl font-bold mt-1 text-yellow-300">未計算</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- マニュアル入力用モーダル -->
+    <div id="manualInputModal"
+        class="fixed inset-0 bg-gray-900 bg-opacity-75 flex justify-center items-center p-4 hidden">
+        <div class="bg-gray-800 p-6 rounded-lg w-full max-w-sm">
+            <h3 id="modalTitle" class="text-lg font-bold mb-4 text-gray-200"></h3>
+            <div class="space-y-4">
+                <div>
+                    <label for="manualStartTime" class="block text-sm font-medium mb-1 text-gray-300">開始時間</label>
+                    <input type="time" id="manualStartTime"
+                        class="w-full p-2 rounded-lg bg-gray-700 border border-gray-600 text-gray-200">
+                </div>
+                <div>
+                    <label for="manualEndTime" class="block text-sm font-medium mb-1 text-gray-300">終了時間</label>
+                    <input type="time" id="manualEndTime"
+                        class="w-full p-2 rounded-lg bg-gray-700 border border-gray-600 text-gray-200">
+                </div>
+                <div>
+                    <label for="manualOvertimeEnd" class="block text-sm font-medium mb-1 text-gray-300">残業予定終了時間</label>
+                    <input type="time" id="manualOvertimeEnd"
+                        class="w-full p-2 rounded-lg bg-gray-700 border border-gray-600 text-gray-200">
+                </div>
+                <div class="space-y-2">
+                    <p class="font-medium text-gray-300">休憩時間</p>
+                    <div id="manualBreaksContainer" class="space-y-2">
+                        <!-- Breaks will be added dynamically -->
+                    </div>
+                    <button id="addBreakBtn"
+                        class="w-full bg-gray-600 text-gray-200 py-2 rounded-lg hover:bg-gray-500">休憩を追加</button>
+                </div>
+            </div>
+            <div class="mt-6 flex justify-end space-x-4">
+                <button id="saveManualBtn"
+                    class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700">保存</button>
+                <button id="cancelManualBtn"
+                    class="bg-gray-600 text-gray-200 font-bold py-2 px-4 rounded-lg hover:bg-gray-500">キャンセル</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- zantime.js のロジックを直接埋め込み (CORSエラー回避) ---
+        function timeToMinutes(timeString) {
+            if (!timeString) return 0;
+            const [hours, minutes] = timeString.split(':').map(Number);
+            return hours * 60 + minutes;
+        }
+
+        function minutesToHours(minutes) {
+            if (minutes < 0) return `-${minutesToHours(Math.abs(minutes))}`;
+            const hours = Math.floor(minutes / 60);
+            const mins = minutes % 60;
+            return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+        }
+
+        function calculateWorkHours(start, end, breaks) {
+            const startMins = timeToMinutes(start);
+            const endMins = timeToMinutes(end);
+            if (endMins <= startMins) return 0;
+            let totalMinutes = endMins - startMins;
+            breaks.forEach(brk => {
+                const breakStartMins = timeToMinutes(brk.start);
+                const breakEndMins = timeToMinutes(brk.end);
+                if (brk.start && brk.end && breakEndMins > breakStartMins) {
+                    const effectiveStart = Math.max(startMins, breakStartMins);
+                    const effectiveEnd = Math.min(endMins, breakEndMins);
+                    if (effectiveEnd > effectiveStart) totalMinutes -= (effectiveEnd - effectiveStart);
+                }
+            });
+            return totalMinutes;
+        }
+
+        function calculateTotalBreakMinutes(breaks, workStart, workEnd) {
+            let totalBreakMinutes = 0;
+            const workStartMins = timeToMinutes(workStart);
+            const workEndMins = timeToMinutes(workEnd);
+            breaks.forEach(brk => {
+                const breakStartMins = timeToMinutes(brk.start);
+                const breakEndMins = timeToMinutes(brk.end);
+                if (brk.start && brk.end && breakEndMins > breakStartMins) {
+                    const effectiveBreakStart = Math.max(workStartMins, breakStartMins);
+                    const effectiveBreakEnd = Math.min(workEndMins, breakEndMins);
+                    if (effectiveBreakEnd > effectiveBreakStart) totalBreakMinutes += (effectiveBreakEnd - effectiveBreakStart);
+                }
+            });
+            return totalBreakMinutes;
+        }
+        // --------------------------------------------------------
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // UIエレメントの取得
+            const targetHoursInput = document.getElementById('targetHours');
+            const targetHoursFormulaEl = document.getElementById('targetHoursFormula');
+            const startTimeInput = document.getElementById('startTime');
+            const endTimeInput = document.getElementById('endTime');
+            const overtimeEndInput = document.getElementById('overtimeEnd');
+            const breakInputs = [
+                { start: document.getElementById('break1Start'), end: document.getElementById('break1End') },
+                { start: document.getElementById('break2Start'), end: document.getElementById('break2End') },
+                { start: document.getElementById('break3Start'), end: document.getElementById('break3End') },
+                { start: document.getElementById('break4Start'), end: document.getElementById('break4End') },
+            ];
+            const yearSelect = document.getElementById('year-select');
+            const monthSelect = document.getElementById('month-select');
+            const calendarEl = document.getElementById('calendar');
+            const overtimeCalendarEl = document.getElementById('overtime-calendar');
+            const workDaysCountEl = document.getElementById('workDaysCount');
+            const calculateBtn = document.getElementById('calculateBtn');
+            const resultsSection = document.getElementById('results');
+            const totalNormalHoursEl = document.getElementById('totalNormalHours');
+            const normalHoursTableEl = document.getElementById('normalHoursTable');
+            const totalOvertimeHoursEl = document.getElementById('totalOvertimeHours');
+            const overtimeHoursTableEl = document.getElementById('overtimeHoursTable');
+            const finalTotalHoursEl = document.getElementById('finalTotalHours');
+            const resultMessageEl = document.getElementById('resultMessage');
+            const exportNormalBtn = document.getElementById('exportNormalBtn');
+            const exportOvertimeBtn = document.getElementById('exportOvertimeBtn');
+
+            // マニュアル入力用モーダル
+            const manualInputModal = document.getElementById('manualInputModal');
+            const modalTitle = document.getElementById('modalTitle');
+            const manualStartTimeInput = document.getElementById('manualStartTime');
+            const manualEndTimeInput = document.getElementById('manualEndTime');
+            const manualOvertimeEndInput = document.getElementById('manualOvertimeEnd');
+            const manualBreaksContainer = document.getElementById('manualBreaksContainer');
+            const addBreakBtn = document.getElementById('addBreakBtn');
+            const saveManualBtn = document.getElementById('saveManualBtn');
+            const cancelManualBtn = document.getElementById('cancelManualBtn');
+
+            // ユーザーがマニュアル入力したデータを保存するオブジェクト
+            let manualEntries = {};
+            let overtimeDays = {}; // 追加：残業予定日の選択状態
+            let workDayOverrides = {}; // 追加：手動で変更した稼働日状態 (true: 稼働, false: 非稼働)
+            let currentSelectedDate = null;
+
+            // 日本の祝日データ (2024-2027年)
+            let baseHolidays = [
+                "2024-01-01", "2024-01-08", "2024-02-11", "2024-02-23", "2024-03-20",
+                "2024-04-29", "2024-05-03", "2024-05-04", "2024-05-06", "2024-07-15", "2024-08-11", "2024-08-12",
+                "2024-09-16", "2024-09-23", "2024-10-14", "2024-11-03", "2024-11-04", "2024-11-23", "2024-12-23",
+                "2025-01-01", "2025-01-13", "2025-02-11", "2025-02-23", "2025-02-24", "2025-03-20",
+                "2025-04-29", "2025-05-03", "2025-05-05", "2025-05-06", "2025-07-21", "2025-08-11",
+                "2025-09-15", "2025-09-23", "2025-10-13", "2025-11-03", "2025-11-23", "2025-11-24", "2025-12-23",
+                "2026-01-01", "2026-01-12", "2026-02-11", "2026-02-23", "2026-03-20",
+                "2026-04-29", "2026-05-03", "2026-05-04", "2026-05-05", "2026-05-06", "2026-07-20",
+                "2026-08-11", "2026-09-21", "2026-09-22", "2026-10-12", "2026-11-03", "2026-11-23", "2026-12-23",
+                "2027-01-01", "2027-01-11", "2027-02-11", "2027-02-23", "2027-03-21", "2027-03-22",
+                "2027-04-29", "2027-05-03", "2027-05-04", "2027-05-05", "2027-07-19", "2027-08-11",
+                "2027-09-20", "2027-09-23", "2027-10-11", "2027-11-03", "2027-11-23"
+            ];
+            let holidays = [...baseHolidays];
+
+            // データのロード
+            function loadSettings() {
+                const saved = localStorage.getItem('zantime_settings');
+                if (saved) {
+                    try {
+                        applySettings(JSON.parse(saved));
+                    } catch (e) {
+                        console.error('Failed to parse settings', e);
+                    }
+                }
+            }
+
+            // JSONファイルから設定をインポート
+            function importSettings(file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const settings = JSON.parse(e.target.result);
+                        applySettings(settings);
+                        saveSettings();
+                        generateCalendar(currentYear, currentMonth);
+                        alert('設定を読み込みました！');
+                    } catch (err) {
+                        alert('設定ファイルの形式が正しくありません。');
+                    }
+                };
+                reader.readAsText(file);
+            }
+
+            function applySettings(settings) {
+                if (settings.targetHours) targetHoursInput.value = settings.targetHours;
+                if (settings.startTime) startTimeInput.value = settings.startTime;
+                if (settings.endTime) endTimeInput.value = settings.endTime;
+                if (settings.overtimeEnd) overtimeEndInput.value = settings.overtimeEnd;
+                if (settings.breaks) {
+                    settings.breaks.forEach((brk, i) => {
+                        if (breakInputs[i]) {
+                            breakInputs[i].start.value = brk.start || '';
+                            breakInputs[i].end.value = brk.end || '';
+                        }
+                    });
+                }
+                if (settings.manualEntries) manualEntries = settings.manualEntries;
+                if (settings.overtimeDays) overtimeDays = settings.overtimeDays;
+                if (settings.workDayOverrides) workDayOverrides = settings.workDayOverrides; // 追加
+                updateTargetHoursFormula();
+            }
+
+            // データの保存
+            function saveSettings() {
+                const settings = {
+                    targetHours: targetHoursInput.value,
+                    startTime: startTimeInput.value,
+                    endTime: endTimeInput.value,
+                    overtimeEnd: overtimeEndInput.value,
+                    breaks: breakInputs.map(brk => ({ start: brk.start.value, end: brk.end.value })),
+                    manualEntries: manualEntries,
+                    overtimeDays: overtimeDays,
+                    workDayOverrides: workDayOverrides // 追加
+                };
+                localStorage.setItem('zantime_settings', JSON.stringify(settings));
+                console.log('Settings saved to localStorage:', settings);
+            }
+
+            // 設定をJSONファイルとしてエクスポート
+            function exportSettings() {
+                const settings = {
+                    targetHours: targetHoursInput.value,
+                    startTime: startTimeInput.value,
+                    endTime: endTimeInput.value,
+                    overtimeEnd: overtimeEndInput.value,
+                    breaks: breakInputs.map(brk => ({ start: brk.start.value, end: brk.end.value })),
+                    manualEntries: manualEntries,
+                    overtimeDays: overtimeDays,
+                    workDayOverrides: workDayOverrides // 追加
+                };
+                const blob = new Blob([JSON.stringify(settings, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `zantime_settings_${new Date().toISOString().split('T')[0]}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }
+
+            loadSettings();
+            updateTargetHoursFormula(); // 追加：読込後に計算式表示を更新
+
+            // localStorageから祝日をロード
+            function loadHolidaysFromStorage() {
+                const stored = localStorage.getItem('custom_holidays');
+                if (stored) {
+                    try {
+                        const customHolidays = JSON.parse(stored);
+                        const merged = new Set([...baseHolidays, ...customHolidays]);
+                        holidays = Array.from(merged).sort();
+
+                        const lastSync = localStorage.getItem('holiday_last_sync');
+                        if (lastSync) {
+                            document.getElementById('holidaySyncStatus').textContent = `最終更新: ${lastSync}`;
+                        }
+                    } catch (e) {
+                        console.error('Failed to parse stored holidays', e);
+                    }
+                }
+            }
+            loadHolidaysFromStorage();
+
+            const syncHolidaysBtn = document.getElementById('syncHolidaysBtn');
+            const holidaySyncStatus = document.getElementById('holidaySyncStatus');
+            const holidayFileGroup = document.getElementById('holidayFileGroup');
+            const holidayCsvFile = document.getElementById('holidayCsvFile');
+
+            function parseHolidayCSV(text) {
+                const lines = text.split(/\r?\n/);
+                const newHolidays = [];
+                for (let i = 1; i < lines.length; i++) {
+                    const parts = lines[i].split(',');
+                    if (parts.length >= 1) {
+                        const dateStr = parts[0].trim();
+                        if (dateStr) {
+                            const date = new Date(dateStr);
+                            if (!isNaN(date)) {
+                                const formatted = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}`;
+                                newHolidays.push(formatted);
+                            }
+                        }
+                    }
+                }
+                if (newHolidays.length > 0) {
+                    saveHolidays(newHolidays);
+                }
+            }
+
+            function saveHolidays(newHolidays) {
+                const merged = new Set([...baseHolidays, ...newHolidays]);
+                holidays = Array.from(merged).sort();
+                localStorage.setItem('custom_holidays', JSON.stringify(newHolidays));
+                const nowStr = new Date().toLocaleString();
+                localStorage.setItem('holiday_last_sync', nowStr);
+                holidaySyncStatus.textContent = `更新完了: ${nowStr}`;
+                holidaySyncStatus.className = "text-[10px] text-green-400";
+                generateCalendar(currentYear, currentMonth);
+            }
+
+            syncHolidaysBtn.addEventListener('click', async () => {
+                holidaySyncStatus.textContent = "同期中...";
+                holidaySyncStatus.className = "text-[10px] text-gray-400";
+                holidayFileGroup.classList.add('hidden');
+                try {
+                    const response = await fetch('https://www8.cao.go.jp/chosei/shukujitsu/syukujitsu.csv');
+                    if (!response.ok) throw new Error('Network response was not ok');
+                    const arrayBuffer = await response.arrayBuffer();
+                    const decoder = new TextDecoder('shift-jis');
+                    const text = decoder.decode(arrayBuffer);
+                    parseHolidayCSV(text);
+                } catch (e) {
+                    console.error('Holiday sync failed', e);
+                    holidaySyncStatus.textContent = "同期失敗 (CORS制限)";
+                    holidaySyncStatus.className = "text-[10px] text-red-500";
+                    holidayFileGroup.classList.remove('hidden');
+                }
+            });
+
+            holidayCsvFile.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const arrayBuffer = event.target.result;
+                    const decoder = new TextDecoder('shift-jis');
+                    const text = decoder.decode(arrayBuffer);
+                    parseHolidayCSV(text);
+                };
+                reader.readAsArrayBuffer(file);
+            });
+
+            function isHoliday(date) {
+                const dateString = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}`;
+                return holidays.includes(dateString);
+            }
+
+            function updateWorkDaysCount() {
+                const count = document.querySelectorAll('#calendar .is-work-day').length;
+                workDaysCountEl.textContent = count;
+                updateTargetHoursFormula();
+            }
+
+            function updateTargetHoursFormula() {
+                const defaultBreaks = breakInputs.map(brk => ({
+                    start: brk.start.value,
+                    end: brk.end.value
+                })).filter(brk => brk.start && brk.end);
+                const defaultDailyHours = calculateWorkHours(startTimeInput.value, endTimeInput.value, defaultBreaks) / 60;
+                const workDaysCount = parseInt(workDaysCountEl.textContent, 10);
+                const defaultTargetHours = defaultDailyHours * workDaysCount;
+                targetHoursFormulaEl.textContent = `（参考）${defaultDailyHours.toFixed(2)}h/日 × ${workDaysCount}日 = ${defaultTargetHours.toFixed(2)}h`;
+            }
+
+            function generateCalendar(year, month) {
+                calendarEl.innerHTML = '';
+                overtimeCalendarEl.innerHTML = '';
+                const daysInMonth = new Date(year, month + 1, 0).getDate();
+                const firstDayOfWeek = new Date(year, month, 1).getDay();
+                const dayNames = ['日', '月', '火', '水', '木', '金', '土'];
+
+                dayNames.forEach(day => {
+                    const dayNameEl = document.createElement('div');
+                    dayNameEl.textContent = day;
+                    dayNameEl.className = 'py-2 text-sm text-gray-400';
+                    calendarEl.appendChild(dayNameEl);
+                    const overtimeDayNameEl = dayNameEl.cloneNode(true);
+                    overtimeCalendarEl.appendChild(overtimeDayNameEl);
+                });
+
+                for (let i = 0; i < firstDayOfWeek; i++) {
+                    const emptyCell = document.createElement('div');
+                    calendarEl.appendChild(emptyCell.cloneNode());
+                    overtimeCalendarEl.appendChild(emptyCell);
+                }
+
+                for (let day = 1; day <= daysInMonth; day++) {
+                    const date = new Date(year, month, day);
+                    const dayOfWeek = date.getDay();
+                    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+                    const isHolidayDay = isHoliday(date);
+                    const dateString = `${year}-${(month + 1).toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
+
+                    const cell = document.createElement('div');
+                    cell.textContent = day;
+                    cell.className = 'calendar-cell p-2 rounded-md hover:bg-gray-600 transition duration-200';
+                    if (workDayOverrides[dateString] !== undefined) {
+                        // 手動設定がある場合はそれを優先
+                        if (workDayOverrides[dateString]) cell.classList.add('is-work-day');
+                        if (isWeekend || isHolidayDay) cell.classList.add('is-weekend', 'is-holiday');
+                    } else {
+                        // デフォルト判定
+                        if (isWeekend || isHolidayDay) {
+                            cell.classList.add('is-weekend', 'is-holiday');
+                        } else {
+                            cell.classList.add('is-work-day');
+                        }
+                    }
+
+                    if (manualEntries[dateString]) cell.classList.add('manual-entry');
+                    cell.dataset.date = dateString;
+                    cell.addEventListener('click', () => {
+                        if (!cell.classList.contains('is-weekend') && !cell.classList.contains('is-holiday')) {
+                            cell.classList.toggle('is-work-day');
+                            workDayOverrides[dateString] = cell.classList.contains('is-work-day'); // 状態を記録
+
+                            updateWorkDaysCount();
+                            if (cell.classList.contains('is-work-day')) {
+                                openManualInputModal(dateString);
+                            } else {
+                                delete manualEntries[dateString];
+                                cell.classList.remove('manual-entry');
+                            }
+                            saveSettings();
+                        }
+                    });
+                    calendarEl.appendChild(cell);
+
+                    const overtimeCell = document.createElement('div');
+                    overtimeCell.textContent = day;
+                    overtimeCell.className = 'calendar-cell p-2 rounded-md hover:bg-gray-600 transition duration-200';
+                    if (isWeekend || isHolidayDay) overtimeCell.classList.add('is-weekend', 'is-holiday');
+                    if (overtimeDays[dateString]) overtimeCell.classList.add('overtime-day');
+                    overtimeCell.dataset.date = dateString;
+                    overtimeCell.addEventListener('click', () => {
+                        if (!overtimeCell.classList.contains('is-weekend') && !overtimeCell.classList.contains('is-holiday')) {
+                            overtimeCell.classList.toggle('overtime-day');
+                            if (overtimeCell.classList.contains('overtime-day')) {
+                                overtimeDays[dateString] = true;
+                                openManualInputModal(dateString);
+                            } else {
+                                delete overtimeDays[dateString];
+                            }
+                            saveSettings(); // 追加：状態変更時に保存
+                        }
+                    });
+                    overtimeCalendarEl.appendChild(overtimeCell);
+                }
+                updateWorkDaysCount();
+            }
+
+            const now = new Date();
+            let currentYear = now.getFullYear();
+            let currentMonth = now.getMonth();
+
+            for (let i = currentYear - 5; i <= currentYear + 5; i++) {
+                const option = document.createElement('option');
+                option.value = i; option.textContent = `${i}年`;
+                yearSelect.appendChild(option);
+            }
+            yearSelect.value = currentYear;
+
+            for (let i = 0; i < 12; i++) {
+                const option = document.createElement('option');
+                option.value = i; option.textContent = `${i + 1}月`;
+                monthSelect.appendChild(option);
+            }
+            monthSelect.value = currentMonth;
+
+            yearSelect.addEventListener('change', () => {
+                currentYear = parseInt(yearSelect.value);
+                generateCalendar(currentYear, currentMonth);
+                saveSettings(); // 追加：年月変更時に構成を保存
+            });
+            monthSelect.addEventListener('change', () => {
+                currentMonth = parseInt(monthSelect.value);
+                generateCalendar(currentYear, currentMonth);
+                saveSettings(); // 追加：年月変更時に構成を保存
+            });
+
+            targetHoursInput.addEventListener('change', () => { updateTargetHoursFormula(); saveSettings(); });
+            startTimeInput.addEventListener('change', () => { updateTargetHoursFormula(); saveSettings(); });
+            endTimeInput.addEventListener('change', () => { updateTargetHoursFormula(); saveSettings(); });
+            overtimeEndInput.addEventListener('change', saveSettings);
+
+            breakInputs.forEach(input => {
+                input.start.addEventListener('change', () => { updateTargetHoursFormula(); saveSettings(); });
+                input.end.addEventListener('change', () => { updateTargetHoursFormula(); saveSettings(); });
+            });
+
+            document.getElementById('exportSettingsBtn').addEventListener('click', exportSettings);
+            document.getElementById('importSettingsFile').addEventListener('change', (e) => {
+                if (e.target.files[0]) importSettings(e.target.files[0]);
+            });
+
+            generateCalendar(currentYear, currentMonth);
+
+            function openManualInputModal(dateString) {
+                currentSelectedDate = dateString;
+                modalTitle.textContent = `${dateString}の勤務時間設定`;
+                const entry = manualEntries[dateString];
+                manualStartTimeInput.value = entry?.startTime || startTimeInput.value;
+                manualEndTimeInput.value = entry?.endTime || endTimeInput.value;
+                manualOvertimeEndInput.value = entry?.overtimeEnd || '';
+                manualBreaksContainer.innerHTML = '';
+                const defaultBreaks = breakInputs.map(brk => ({ start: brk.start.value, end: brk.end.value })).filter(brk => brk.start && brk.end);
+                const breaksToLoad = entry?.breaks || defaultBreaks;
+                breaksToLoad.forEach(brk => addBreakInputFields(brk.start, brk.end));
+                manualInputModal.classList.remove('hidden');
+            }
+
+            function addBreakInputFields(start = '', end = '') {
+                const breakDiv = document.createElement('div');
+                breakDiv.className = 'flex items-center space-x-2';
+                breakDiv.innerHTML = `
+                    <input type="time" value="${start}" class="w-1/2 p-2 rounded-lg bg-gray-700 border border-gray-600 text-gray-200 manual-break-start">
+                    <span>-</span>
+                    <input type="time" value="${end}" class="w-1/2 p-2 rounded-lg bg-gray-700 border border-gray-600 text-gray-200 manual-break-end">
+                    <button class="remove-break-btn text-gray-400 hover:text-red-500 font-bold px-1">x</button>
+                `;
+                breakDiv.querySelector('.remove-break-btn').addEventListener('click', () => breakDiv.remove());
+                manualBreaksContainer.appendChild(breakDiv);
+            }
+
+            addBreakBtn.addEventListener('click', () => addBreakInputFields());
+
+            saveManualBtn.addEventListener('click', () => {
+                const manualBreaks = [];
+                const breakStartInputs = manualBreaksContainer.querySelectorAll('.manual-break-start');
+                const breakEndInputs = manualBreaksContainer.querySelectorAll('.manual-break-end');
+                for (let i = 0; i < breakStartInputs.length; i++) {
+                    manualBreaks.push({ start: breakStartInputs[i].value, end: breakEndInputs[i].value });
+                }
+
+                // より明示的な値の保存
+                const newEntry = {
+                    startTime: manualStartTimeInput.value,
+                    endTime: manualEndTimeInput.value,
+                    overtimeEnd: manualOvertimeEndInput.value,
+                    breaks: manualBreaks
+                };
+
+                manualEntries[currentSelectedDate] = newEntry;
+                console.log(`Manual entry saved for ${currentSelectedDate}:`, newEntry);
+
+                const cell = document.querySelector(`#calendar .calendar-cell[data-date="${currentSelectedDate}"]`);
+                if (cell) cell.classList.add('manual-entry');
+                manualInputModal.classList.add('hidden');
+                saveSettings();
+            });
+
+            cancelManualBtn.addEventListener('click', () => manualInputModal.classList.add('hidden'));
+
+            let normalHoursTableRows = [];
+            let overtimeHoursTableRows = [];
+
+            calculateBtn.addEventListener('click', () => {
+                const targetHours = parseFloat(targetHoursInput.value);
+                if (isNaN(targetHours) || targetHours <= 0) { alert('有効な目標稼働時間を入力してください。'); return; }
+                let totalNormalMinutes = 0;
+                let totalOvertimeMinutes = 0;
+                normalHoursTableRows = [];
+                overtimeHoursTableRows = [];
+                const workDaysElements = document.querySelectorAll('#calendar .is-work-day');
+                if (workDaysElements.length === 0) { alert('稼働日を1日以上選択してください。'); return; }
+
+                workDaysElements.forEach(dayCell => {
+                    const dateString = dayCell.dataset.date;
+                    const manualEntry = manualEntries[dateString];
+                    const defaultBreaks = breakInputs.map(brk => ({ start: brk.start.value, end: brk.end.value })).filter(brk => brk.start && brk.end);
+                    const workStartTime = manualEntry?.startTime || startTimeInput.value;
+                    const workEndTime = manualEntry?.endTime || endTimeInput.value;
+                    const breaksList = manualEntry?.breaks || defaultBreaks;
+                    const breaksMinutes = calculateTotalBreakMinutes(breaksList, workStartTime, workEndTime);
+                    const dailyMinutes = timeToMinutes(workEndTime) - timeToMinutes(workStartTime) - breaksMinutes;
+                    const isOvertimeDay = document.querySelector(`#overtime-calendar .calendar-cell[data-date="${dateString}"]`).classList.contains('overtime-day');
+
+                    let dailyOvertimeMinutes = 0;
+                    if (isOvertimeDay) {
+                        const overtimeEndTime = manualEntry?.overtimeEnd || overtimeEndInput.value;
+                        const totalMinutesWithOvertime = timeToMinutes(overtimeEndTime) - timeToMinutes(workStartTime) - calculateTotalBreakMinutes(breaksList, workStartTime, overtimeEndTime);
+                        dailyOvertimeMinutes = Math.max(0, totalMinutesWithOvertime - dailyMinutes);
+                    }
+
+                    totalNormalMinutes += dailyMinutes;
+                    totalOvertimeMinutes += dailyOvertimeMinutes;
+                    normalHoursTableRows.push({ date: dateString, startTime: workStartTime, endTime: workEndTime, breaks: minutesToHours(breaksMinutes), total: minutesToHours(dailyMinutes) });
+                    if (dailyOvertimeMinutes > 0) {
+                        overtimeHoursTableRows.push({ date: dateString, startTime: workEndTime, endTime: manualEntry?.overtimeEnd || overtimeEndInput.value, total: minutesToHours(dailyOvertimeMinutes) });
+                    }
+                });
+
+                const finalTotalMinutes = totalNormalMinutes + totalOvertimeMinutes;
+                totalNormalHoursEl.textContent = minutesToHours(totalNormalMinutes);
+                totalOvertimeHoursEl.textContent = minutesToHours(totalOvertimeMinutes);
+                finalTotalHoursEl.textContent = minutesToHours(finalTotalMinutes);
+                resultsSection.classList.remove('hidden');
+                resultsSection.classList.add('animate-fade-in');
+
+                (function updateResultMessage() {
+                    const ratio = Math.min((finalTotalMinutes / 60) / targetHours * 100, 100);
+                    if (finalTotalHoursEl.textContent.startsWith('-') || finalTotalMinutes / 60 < targetHours) {
+                        const deficit = targetHours * 60 - finalTotalMinutes;
+                        resultMessageEl.innerHTML = `目標まであと ${minutesToHours(deficit)} 不足しています。 <span class="text-xs">(${ratio.toFixed(1)}%)</span>`;
+                        resultMessageEl.classList.replace('text-green-400', 'text-red-400') || resultMessageEl.classList.add('text-red-400');
+                    } else {
+                        resultMessageEl.innerHTML = `目標達成です！ <span class="text-xs">(${ratio.toFixed(1)}%)</span>`;
+                        resultMessageEl.classList.replace('text-red-400', 'text-green-400') || resultMessageEl.classList.add('text-green-400');
+                    }
+                })();
+
+                (function createTables() {
+                    [{ data: normalHoursTableRows, id: 'normalHoursTable', type: 'normal' }, { data: overtimeHoursTableRows, id: 'overtimeHoursTable', type: 'overtime' }].forEach(cfg => {
+                        const container = document.getElementById(cfg.id);
+                        container.innerHTML = '';
+                        if (cfg.data.length === 0) { container.textContent = 'データなし'; return; }
+                        const table = document.createElement('table');
+                        table.className = 'styled-table';
+                        const headers = cfg.type === 'normal'
+                            ? [{ key: 'date', text: '日付' }, { key: 'startTime', text: '開始' }, { key: 'endTime', text: '終了' }, { key: 'breaks', text: '休憩' }, { key: 'total', text: '合計' }]
+                            : [{ key: 'date', text: '日付' }, { key: 'startTime', text: '残業開始' }, { key: 'endTime', text: '残業終了' }, { key: 'total', text: '合計' }];
+                        const head = table.createTHead(); const hr = head.insertRow();
+                        headers.forEach(h => { const th = document.createElement('th'); th.textContent = h.text; th.className = 'px-2 py-1 border-b border-gray-600'; hr.appendChild(th); });
+                        const body = table.createTBody();
+                        cfg.data.forEach(item => { const r = body.insertRow(); headers.forEach(h => { const c = r.insertCell(); c.textContent = item[h.key]; c.className = 'px-2 py-1 border-b border-gray-700'; }); });
+                        container.appendChild(table);
+                    });
+                })();
+            });
+
+            function exportTableToCSV(data, filename, headers) {
+                const csvRows = [headers.map(h => h.text).join(',')];
+                data.forEach(item => csvRows.push(headers.map(h => item[h.key] || '').join(',')));
+                const blob = new Blob(['\ufeff' + csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob); link.download = filename;
+                document.body.appendChild(link); link.click(); document.body.removeChild(link);
+            }
+
+            exportNormalBtn.addEventListener('click', () => {
+                if (normalHoursTableRows.length > 0) exportTableToCSV(normalHoursTableRows, 'normal_hours.csv', [{ key: 'date', text: '日付' }, { key: 'startTime', text: '開始' }, { key: 'endTime', text: '終了' }, { key: 'breaks', text: '休憩' }, { key: 'total', text: '合計' }]);
+                else alert('データがありません');
+            });
+            exportOvertimeBtn.addEventListener('click', () => {
+                if (overtimeHoursTableRows.length > 0) exportTableToCSV(overtimeHoursTableRows, 'overtime_hours.csv', [{ key: 'date', text: '日付' }, { key: 'startTime', text: '残業開始' }, { key: 'endTime', text: '残業終了' }, { key: 'total', text: '合計' }]);
+                else alert('データがありません');
+            });
+        });
+    </script>
+</body>
+
+</html>
