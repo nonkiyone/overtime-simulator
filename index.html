@@ -106,7 +106,8 @@
 <body class="p-4 flex justify-center items-center min-h-screen">
 
     <div class="bg-gray-800 p-8 rounded-2xl shadow-xl w-full max-w-xl mx-auto">
-        <h1 class="text-3xl font-bold text-center mb-6 text-gray-200">残業シミュレーター</h1>
+        <h1 class="text-3xl font-bold text-center mb-6 text-gray-200">残業シミュレーター <span
+                class="text-sm font-normal text-gray-400">Ver 1.0.1</span></h1>
         <p class="text-sm text-center mb-6 text-gray-400">
             勤務時間や残業日を自由に設定して、目標達成に必要な時間を計算します。
         </p>
@@ -498,9 +499,9 @@
                 updateTargetHoursFormula();
             }
 
-            // データの保存
-            function saveSettings() {
-                const settings = {
+            // 現在のすべての設定をオブジェクトとして取得する
+            function getSettings() {
+                return {
                     targetHours: targetHoursInput.value,
                     startTime: startTimeInput.value,
                     endTime: endTimeInput.value,
@@ -508,24 +509,22 @@
                     breaks: breakInputs.map(brk => ({ start: brk.start.value, end: brk.end.value })),
                     manualEntries: manualEntries,
                     overtimeDays: overtimeDays,
-                    workDayOverrides: workDayOverrides // 追加
+                    workDayOverrides: workDayOverrides
                 };
+            }
+
+            // データの保存（localStorage）
+            function saveSettings() {
+                const settings = getSettings();
                 localStorage.setItem('zantime_settings', JSON.stringify(settings));
                 console.log('Settings saved to localStorage:', settings);
             }
 
             // 設定をJSONファイルとしてエクスポート
             function exportSettings() {
-                const settings = {
-                    targetHours: targetHoursInput.value,
-                    startTime: startTimeInput.value,
-                    endTime: endTimeInput.value,
-                    overtimeEnd: overtimeEndInput.value,
-                    breaks: breakInputs.map(brk => ({ start: brk.start.value, end: brk.end.value })),
-                    manualEntries: manualEntries,
-                    overtimeDays: overtimeDays,
-                    workDayOverrides: workDayOverrides // 追加
-                };
+                const settings = getSettings();
+                console.log('Exporting settings:', settings); // デバッグ用
+
                 const blob = new Blob([JSON.stringify(settings, null, 2)], { type: 'application/json' });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
@@ -537,8 +536,19 @@
                 URL.revokeObjectURL(url);
             }
 
+            function loadSettings() {
+                const saved = localStorage.getItem('zantime_settings');
+                if (saved) {
+                    try {
+                        applySettings(JSON.parse(saved));
+                    } catch (e) {
+                        console.error('Failed to parse settings', e);
+                    }
+                }
+            }
+
             loadSettings();
-            updateTargetHoursFormula(); // 追加：読込後に計算式表示を更新
+            updateTargetHoursFormula();
 
             // localStorageから祝日をロード
             function loadHolidaysFromStorage() {
@@ -767,14 +777,23 @@
                 saveSettings(); // 追加：年月変更時に構成を保存
             });
 
-            targetHoursInput.addEventListener('change', () => { updateTargetHoursFormula(); saveSettings(); });
-            startTimeInput.addEventListener('change', () => { updateTargetHoursFormula(); saveSettings(); });
-            endTimeInput.addEventListener('change', () => { updateTargetHoursFormula(); saveSettings(); });
-            overtimeEndInput.addEventListener('change', saveSettings);
+            // デフォルト勤務時間設定の変更を監視して自動保存
+            [startTimeInput, endTimeInput, overtimeEndInput, targetHoursInput].forEach(input => {
+                input.addEventListener('change', () => {
+                    updateTargetHoursFormula();
+                    saveSettings();
+                });
+            });
 
             breakInputs.forEach(input => {
-                input.start.addEventListener('change', () => { updateTargetHoursFormula(); saveSettings(); });
-                input.end.addEventListener('change', () => { updateTargetHoursFormula(); saveSettings(); });
+                input.start.addEventListener('change', () => {
+                    updateTargetHoursFormula();
+                    saveSettings();
+                });
+                input.end.addEventListener('change', () => {
+                    updateTargetHoursFormula();
+                    saveSettings();
+                });
             });
 
             document.getElementById('exportSettingsBtn').addEventListener('click', exportSettings);
